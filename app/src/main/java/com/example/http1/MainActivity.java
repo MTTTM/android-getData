@@ -2,11 +2,15 @@ package com.example.http1;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
+
+import com.facebook.drawee.backends.pipeline.Fresco;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -28,12 +32,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView mTextView;
     private  Button mParseDataBtn;
     private String result;
+    List<LessionResult.Lesson> lessonlist=new ArrayList<>();
+     private MyAdapter mAdapter = null;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Fresco.initialize(this);
         findViews();
         setListeners();
+       initList();
+    }
+    private  void  initList(){
+        mTextView.setText("");
+        Context mContext= MainActivity.this;
+
+        ListView list_dom = (ListView) findViewById(R.id.list_one);
+        mAdapter = new MyAdapter(lessonlist, mContext);
+        list_dom.setAdapter(mAdapter);
     }
     public  void  requestDataByGet(){
         mTextView.setText("请求中....");
@@ -60,6 +76,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         mTextView.setText(utf8Str);
                     }
                 });
+                if(lessonlist.size()>0){
+                    lessonlist.clear();
+                    mAdapter.notifyDataSetChanged();//更新数据
+                }
+
             }
 
             else{
@@ -115,9 +136,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     mParseDataBtn.setOnClickListener(this);
     }
     private void handleJSONData(String result){
+        mTextView.setText("");
         try{
             LessionResult lessonResult=new LessionResult();
-            List<LessionResult.Lesson> lessonlist=new ArrayList<>();
+            lessonlist.clear();//不能直接从新赋值新的列表对象，否则无法使用notifyDataSetChanged
 
             JSONObject jsonObject=new JSONObject(result);
             int status=jsonObject.getInt("status");
@@ -142,7 +164,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 }
                 lessonResult.setLessons(lessonlist);
-                Log.d("TAG", "toStr"+lessonResult.toString());
+                mAdapter.notifyDataSetChanged();//更新数据
+//                Log.d("TAG", "toStr"+lessonResult.toString());
             }
         }catch (JSONException E){
             E.printStackTrace();
