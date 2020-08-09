@@ -8,12 +8,18 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -21,6 +27,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Button mButton;
     private TextView mTextView;
     private  Button mParseDataBtn;
+    private String result;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,7 +35,50 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         findViews();
         setListeners();
     }
+    public  void  requestDataByGet(){
+        mTextView.setText("请求中....");
+        try {
+            URL url=new URL("http://www.imooc.com/api/teacher?type=2&page=1");
+            HttpURLConnection connection=(HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(30*1000);
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type","application/json");
+            connection.setRequestProperty("Charset","UTF-8");
+            connection.setRequestProperty("Accept-Charset","UTF-8");
+            connection.connect();//发起连接
+            Log.d("TAG", "GET====???");
+            int responseCode=connection.getResponseCode();
+            String reponseMessage=connection.getResponseMessage();
 
+            if (responseCode==HttpsURLConnection.HTTP_OK){
+                InputStream inputStream=connection.getInputStream();
+                result=streamToString(inputStream);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        String utf8Str=decodeUnicode(result);
+                        mTextView.setText(utf8Str);
+                    }
+                });
+            }
+
+            else{
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTextView.setText("请求失败");
+                    }
+                });
+
+            }
+        }catch (MalformedURLException e){
+            Log.d("formed", "run:fdsdssf");
+            e.printStackTrace();
+        }catch (IOException e){
+            Log.d("formed", "run:???");
+            e.printStackTrace();
+        }
+    }
     @Override
     public void onClick(View view) {
         Log.d("TAG", ""+view.getId());
@@ -38,49 +88,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        Log.d("TAG", "GET====--33");
-                        mTextView.setText("请求中....");
-                        try {
-                            URL url=new URL("http://www.imooc.com/api/teacher?type=2&page=1");
-                            HttpURLConnection connection=(HttpURLConnection) url.openConnection();
-                            connection.setConnectTimeout(30*1000);
-                            connection.setRequestMethod("GET");
-                            connection.setRequestProperty("Content-Type","application/json");
-                            connection.setRequestProperty("Charset","UTF-8");
-                            connection.setRequestProperty("Accept-Charset","UTF-8");
-                            connection.connect();//发起连接
-                            Log.d("TAG", "GET====???");
-                            int responseCode=connection.getResponseCode();
-                            String reponseMessage=connection.getResponseMessage();
+                        requestDataByGet();
 
-                            if (responseCode==HttpsURLConnection.HTTP_OK){
-                                InputStream inputStream=connection.getInputStream();
-                                final String result=streamToString(inputStream);
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        String utf8Str=decodeUnicode(result);
-                                        mTextView.setText(utf8Str);
-                                    }
-                                });
-                            }
 
-                            else{
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        mTextView.setText("请求失败");
-                                    }
-                                });
-
-                            }
-                        }catch (MalformedURLException e){
-                            Log.d("formed", "run:fdsdssf");
-                            e.printStackTrace();
-                        }catch (IOException e){
-                            Log.d("formed", "run:???");
-                            e.printStackTrace();
-                        }
                     }
                 }).start();
 
@@ -88,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                 break;
             case R.id.parse:
+                handleJSONData(result);
                 break;
         }
     }
@@ -102,6 +113,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private  void setListeners(){
     mButton.setOnClickListener(this);
     mParseDataBtn.setOnClickListener(this);
+    }
+    private void handleJSONData(String result){
+        try{
+            LessionResult lessonResult=new LessionResult();
+            List<LessionResult.Lesson> lessonlist=new ArrayList<>();
+
+            JSONObject jsonObject=new JSONObject(result);
+            int status=jsonObject.getInt("status");
+            JSONArray lessons=jsonObject.getJSONArray("data");
+            if(lessons!=null&&lessons.length()>0){
+                for (int index=0;index<lessons.length();index++){
+                    JSONObject lesson=(JSONObject) lessons.get(index);
+                    int id=lesson.getInt("id");
+                    int learner=lesson.getInt("learner");
+                    String name=lesson.getString("name");
+                    String picSmall=lesson.getString("picSmall");
+                    String picBig=lesson.getString("picBig");
+                    String desc=lesson.getString("description");
+                    LessionResult.Lesson lessonItem=new LessionResult.Lesson();
+                    lessonItem.setId(id);
+                    lessonItem.setName(name);
+                    lessonItem.setPicSmall(picSmall);
+                    lessonItem.setPicBig(picBig);
+                    lessonItem.setDescription(desc);
+                    lessonItem.setLearner(learner);
+                    lessonlist.add(lessonItem);
+
+                }
+                lessonResult.setLessons(lessonlist);
+                Log.d("TAG", "toStr"+lessonResult.toString());
+            }
+        }catch (JSONException E){
+            E.printStackTrace();
+        }
+
     }
     private String streamToString(InputStream is) throws IOException
     {
